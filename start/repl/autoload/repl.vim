@@ -20,16 +20,18 @@ function repl#Repl() abort
 endfunction
 
 function s:SetMap()
-"	nmap <buffer> <silent> <script> <C-L> :call <SID>EvalAll()<CR>
+	nmap <buffer> <silent> <script> <C-L> :call <SID>EvalCurrentBlock()<CR>
 	vmap <buffer> <silent> <script> <C-L> :call <SID>EvalSelection()<CR>
 endfunction
 
-function s:EvalAll()
-	call s:SendText(s:GetAllText())
+function s:EvalCurrentBlock()
+	let l:start = searchpairpos('(', '', ')', 'bW')
+	let l:end = searchpairpos('(', '', ')', 'Wz')
+	call s:SendText(join(s:GetLinePos(l:start, l:end)))
 endfunction
 
 function s:EvalSelection() range
-	call s:SendText(s:GetLineText(a:firstline, a:lastline))
+	call s:SendText(join(s:GetLine(a:firstline, a:lastline)))
 endfunction
 
 function s:CreateRepl(cmd)
@@ -48,8 +50,15 @@ function s:ShowBuffer(buffer)
 	execute l:w . "wincmd w"
 endfunction
 
-function s:GetLineText(start, end)
-	return join(s:TrimLines(getline(a:start, a:end)))
+function s:GetLinePos(start, end)
+	let l:l = getline(a:start[0], a:end[0])
+	let l:l[-1] = strpart(l:l[-1], 0, a:end[1])
+	let l:l[0] = strpart(l:l[0], a:start[1] - 1)
+	return s:TrimLines(l:l)
+endfunction
+
+function s:GetLine(start, end)
+	return s:TrimLines(getline(a:start, a:end))
 endfunction
 
 function s:TrimLines(lines)
