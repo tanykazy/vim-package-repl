@@ -10,11 +10,13 @@
 "let s:prompt = '> '
 
 "let b:handle
+let b:repl = 'clisp'
+let b:option = '-o '
 
 function repl#Repl() abort
 	if !exists("b:handle")
 		call s:SetMap()
-		let b:handle = s:CreateRepl('clisp')
+		let b:handle = s:CreateRepl(b:repl)
 	endif
 	return b:handle
 endfunction
@@ -27,11 +29,11 @@ endfunction
 function s:EvalCurrentBlock()
 	let l:start = searchpairpos('(', '', ')', 'bW')
 	let l:end = searchpairpos('(', '', ')', 'Wz')
-	call s:SendText(s:GetLinePos(l:start, l:end))
+	call s:SendText(join(s:GetLinePos(l:start, l:end)))
 endfunction
 
 function s:EvalSelection() range
-	call s:SendText(s:GetLine(a:firstline, a:lastline))
+	call s:SendText(join(s:GetLine(a:firstline, a:lastline)))
 endfunction
 
 function s:CreateRepl(cmd)
@@ -47,7 +49,7 @@ endfunction
 function s:ShowBuffer(buffer)
 	let l:w = bufwinnr(bufnr("#"))
 	execute "vertical rightbelow sbuffer" a:buffer
-	execute l:w . "wincmd w"
+	execute l:w .. "wincmd w"
 endfunction
 
 function s:GetLinePos(start, end)
@@ -61,12 +63,12 @@ function s:GetLine(start, end)
 	return s:TrimLines(getline(a:start, a:end))
 endfunction
 
-function s:TrimLines(line)
-	return map(a:line, {_, val -> trim(val)})
+function s:TrimLines(lines)
+	return map(a:lines, {_, val -> trim(val)})
 endfunction
 
-function s:SendText(line)
-	call ch_sendraw(b:handle, join(a:line) . "\n")
+function s:SendText(text)
+	call ch_sendraw(b:handle, a:text .. "\n")
 endfunction
 
 
