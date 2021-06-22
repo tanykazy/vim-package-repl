@@ -11,12 +11,14 @@
 
 "let b:handle
 let b:repl = 'clisp'
-let b:option = '-o '
+let b:option = '-o'
 
 function repl#Repl() abort
 	if !exists("b:handle")
+		let l:cwd = getcwd(bufwinnr(bufnr("#")))
+		echo l:cwd
 		call s:SetMap()
-		let b:handle = s:CreateRepl(b:repl)
+		let b:handle = s:CreateRepl(l:cwd, join([b:repl, b:option, l:cwd]))
 	endif
 	return b:handle
 endfunction
@@ -36,9 +38,10 @@ function s:EvalSelection() range
 	call s:SendText(s:GetLine(a:firstline, a:lastline))
 endfunction
 
-function s:CreateRepl(cmd)
+function s:CreateRepl(cwd, cmd)
 	let l:b = term_start(a:cmd, {
 		\ "hidden": 1,
+		\ "cwd": a:cwd,
 		\ "term_finish": "close"})
 	call s:ShowBuffer(l:b)
 	let l:j = term_getjob(l:b)
