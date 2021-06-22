@@ -49,7 +49,7 @@ endfunction
 function s:ShowBuffer(buffer)
 	let l:w = bufwinnr(bufnr("#"))
 	execute "vertical rightbelow sbuffer" a:buffer
-	execute l:w .. "wincmd w"
+	execute l:w . "wincmd w"
 endfunction
 
 function s:GetLinePos(start, end)
