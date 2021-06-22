@@ -10,11 +10,13 @@
 "let s:prompt = '> '
 
 "let b:handle
+let b:repl = 'clisp'
+let b:option = '-o '
 
 function repl#Repl() abort
 	if !exists("b:handle")
 		call s:SetMap()
-		let b:handle = s:CreateRepl('clisp')
+		let b:handle = s:CreateRepl(b:repl)
 	endif
 	return b:handle
 endfunction
@@ -47,7 +49,7 @@ endfunction
 function s:ShowBuffer(buffer)
 	let l:w = bufwinnr(bufnr("#"))
 	execute "vertical rightbelow sbuffer" a:buffer
-	execute l:w . "wincmd w"
+	execute l:w .. "wincmd w"
 endfunction
 
 function s:GetLinePos(start, end)
@@ -66,7 +68,7 @@ function s:TrimLines(lines)
 endfunction
 
 function s:SendText(text)
-	call ch_sendraw(b:handle, a:text . "\n")
+	call ch_sendraw(b:handle, a:text .. "\n")
 endfunction
 
 
