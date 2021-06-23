@@ -1,22 +1,19 @@
-" if exists("g:loaded_repl")
-"    finish
-" endif
-" let g:loaded_repl = 1
 
-"let s:save_cpoptions = &cpoptions
-"set cpoptions&vim
+if exists("g:loaded_repl")
+	finish
+endif
+let g:loaded_repl = 1
 
-"let s:buftype = 'prompt'
-"let s:prompt = '> '
+let s:save_cpoptions = &cpoptions
+set cpoptions&vim
 
-"let b:handle
+
 let b:repl = 'clisp'
 let b:option = '-o'
 
 function repl#Repl() abort
 	if !exists("b:handle")
 		let l:cwd = getcwd(bufwinnr(bufnr("#")))
-"		echo l:cwd
 		call s:SetMap()
 "		let b:handle = s:CreateRepl(l:cwd, join([b:repl, b:option, l:cwd]))
 		let b:handle = s:CreateRepl(l:cwd, b:repl)
@@ -41,9 +38,9 @@ endfunction
 
 function s:CreateRepl(cwd, cmd)
 	let l:b = term_start(a:cmd, {
-		\ "hidden": 1,
-		\ "cwd": a:cwd,
-		\ "term_finish": "close"})
+				\ "hidden": 1,
+				\ "cwd": a:cwd,
+				\ "term_finish": "close"})
 	call s:ShowBuffer(l:b)
 	let l:j = term_getjob(l:b)
 	let l:c = job_getchannel(l:j)
@@ -80,25 +77,7 @@ function s:callbackhandler(channel, msg)
 	echo a:msg
 endfunction
 
-"function repl#CallbackHandler(channel, msg)
-"endfunction
-"
-"function repl#OutHandler(channel, msg)
-"endfunction
-"
-"function repl#InHandler(channel, msg)
-"endfunction
-"
-"function repl#ErrHandler(channel, msg)
-"endfunction
-"
-"function repl#CloseHandler(channel, msg)
-"endfunction
-"
-"function repl#ExitHandler(channel, msg)
-"endfunction
 
-
-"let &cpoptions = s:save_cpoptions
-"unlet s:save_cpoptions
+let &cpoptions = s:save_cpoptions
+unlet s:save_cpoptions
 
