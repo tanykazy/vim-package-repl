@@ -18,7 +18,8 @@ function repl#Repl() abort
 		let l:cwd = getcwd(bufwinnr(bufnr("#")))
 		echo l:cwd
 		call s:SetMap()
-		let b:handle = s:CreateRepl(l:cwd, join([b:repl, b:option, l:cwd]))
+"		let b:handle = s:CreateRepl(l:cwd, join([b:repl, b:option, l:cwd]))
+		let b:handle = s:CreateRepl(l:cwd, b:repl)
 	endif
 	return b:handle
 endfunction
