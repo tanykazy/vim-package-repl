@@ -16,7 +16,7 @@ let b:option = '-o'
 function repl#Repl() abort
 	if !exists("b:handle")
 		let l:cwd = getcwd(bufwinnr(bufnr("#")))
-		echo l:cwd
+"		echo l:cwd
 		call s:SetMap()
 "		let b:handle = s:CreateRepl(l:cwd, join([b:repl, b:option, l:cwd]))
 		let b:handle = s:CreateRepl(l:cwd, b:repl)
@@ -75,7 +75,10 @@ function s:SendText(line)
 	call ch_sendraw(b:handle, join(a:line) .. "\n")
 endfunction
 
-
+function s:callbackhandler(channel, msg)
+	echo a:channel
+	echo a:msg
+endfunction
 
 "function repl#CallbackHandler(channel, msg)
 "endfunction
