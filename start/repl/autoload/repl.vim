@@ -7,8 +7,10 @@ let g:loaded_repl = 1
 let s:save_cpoptions = &cpoptions
 set cpoptions&vim
 
+let s:script_dir = expand('<sfile>:p:h')
 
-let b:repl = 'clisp'
+let b:repl = 'clisp -i ~/.vim/pack/vim-package-repl/start-swank.lisp'
+"let b:repl = 'clisp'
 let b:option = '-o'
 
 function repl#Repl() abort
@@ -17,8 +19,20 @@ function repl#Repl() abort
 		call s:SetMap()
 "		let b:handle = s:CreateRepl(l:cwd, join([b:repl, b:option, l:cwd]))
 		let b:handle = s:CreateRepl(l:cwd, b:repl)
+
+		call s:Connect("localhost", 4005)
+
 	endif
 	return b:handle
+endfunction
+
+function s:Connect(host, port)
+	let l:address = join([a:host, a:port], ':')
+	let l:options = {
+				\"mode": "json",
+				\"callback": function('s:callbackhandler')}
+	let l:channel = ch_open(l:address, l:options)
+	echo l:address
 endfunction
 
 function s:SetMap()
@@ -29,11 +43,13 @@ endfunction
 function s:EvalCurrentBlock()
 	let l:start = searchpairpos('(', '', ')', 'bW')
 	let l:end = searchpairpos('(', '', ')', 'Wz')
-	call s:SendText(s:GetLinePos(l:start, l:end))
+	if l:start != [0, 0] && l:end != [0, 0]
+		return s:SendText(s:GetLinePos(l:start, l:end))
+	endif
 endfunction
 
 function s:EvalSelection() range
-	call s:SendText(s:GetLine(a:firstline, a:lastline))
+	return s:SendText(s:GetLine(a:firstline, a:lastline))
 endfunction
 
 function s:CreateRepl(cwd, cmd)
@@ -41,9 +57,17 @@ function s:CreateRepl(cwd, cmd)
 				\ "hidden": 1,
 				\ "cwd": a:cwd,
 				\ "term_finish": "close"})
+
+"	let l:j = job_start(a:cmd)
+"	let l:c = job_getchannel(l:j)
+"	let l:b = ch_getbufnr(l:c, "")
+
 	call s:ShowBuffer(l:b)
 	let l:j = term_getjob(l:b)
 	let l:c = job_getchannel(l:j)
+
+	call term_wait(l:b)
+
 	return l:c
 endfunction
 
@@ -51,17 +75,18 @@ function s:ShowBuffer(buffer)
 	let l:w = bufwinnr(bufnr("#"))
 	execute "vertical rightbelow sbuffer" a:buffer
 	execute l:w . "wincmd w"
+	return a:buffer
 endfunction
 
 function s:GetLinePos(start, end)
-	let l:l = getline(a:start[0], a:end[0])
+	let l:l = s:GetLine(a:start[0], a:end[0])
 	let l:l[-1] = strpart(l:l[-1], 0, a:end[1])
 	let l:l[0] = strpart(l:l[0], a:start[1] - 1)
-	return s:TrimLines(l:l)
+	return l:l
 endfunction
 
 function s:GetLine(start, end)
-	return s:TrimLines(getline(a:start, a:end))
+	return getline(a:start, a:end)
 endfunction
 
 function s:TrimLines(line)
@@ -69,7 +94,7 @@ function s:TrimLines(line)
 endfunction
 
 function s:SendText(line)
-	call ch_sendraw(b:handle, join(a:line) .. "\n")
+	return ch_sendraw(b:handle, join(s:TrimLines(a:line)) . "\n")
 endfunction
 
 function s:callbackhandler(channel, msg)
