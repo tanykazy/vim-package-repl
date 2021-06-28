@@ -13,13 +13,13 @@ let b:option = '-i'
 let s:reSwankPort = '^;; Swank started at port: \([[:digit:]]\+\)\.$'
 let s:swankHost = '127.0.0.1'
 
+let s:repl = {}
+
 function repl#Repl() abort
 	if !exists("b:handle")
-		let l:cwd = getcwd(bufwinnr(bufnr("#")))
 		call s:SetMap()
-		let b:handle = s:StartImpl(l:cwd, join([b:impl, b:option, swank#GetPath()]))
+		let b:handle = s:repl.StartImpl([b:impl, b:option, swank#GetPath()], s:GetCwd())
 	endif
-	return b:handle
 endfunction
 
 function s:SetMap()
@@ -31,16 +31,16 @@ function s:EvalCurrentBlock()
 	let l:start = searchpairpos('(', '', ')', 'bW')
 	let l:end = searchpairpos('(', '', ')', 'Wz')
 	if l:start != [0, 0] && l:end != [0, 0]
-		return s:SendText(s:GetLinePos(l:start, l:end))
+		return s:repl.SendText(s:GetLinePos(l:start, l:end))
 	endif
 endfunction
 
 function s:EvalSelection() range
-	return s:SendText(s:GetLine(a:firstline, a:lastline))
+	return s:repl.SendText(s:GetLine(a:firstline, a:lastline))
 endfunction
 
-function s:StartImpl(cwd, cmd)
-	let l:buf = bufnr(a:cmd, v:true)
+function s:repl.StartImpl(cmd, cwd) dict
+	let l:buf = bufnr(join(a:cmd), v:true)
 "	let b:id = s:Await(function('s:AwaitConnectSwank'))
 	let l:job = s:JobStart(a:cmd, {
 				\ 'in_mode': 'nl',
@@ -53,7 +53,7 @@ function s:StartImpl(cwd, cmd)
 				\ 'err_modifiable': 0,
 				\ 'out_name': bufname(l:buf),
 				\ 'err_name': bufname(l:buf),
-				\ "callback": function('s:WaitStartedImpl'),
+				\ "callback": self.WaitStartedImpl,
 				\ "cwd": a:cwd})
 	call s:ShowBuffer(l:buf)
 	let l:channel = job_getchannel(l:job)
@@ -69,23 +69,31 @@ endfunction
 "	return v:false
 "endfunction
 
-function s:WaitStartedImpl(channel, msg)
+function s:repl.WaitStartedImpl(channel, msg) dict
 	let l:matched = matchlist(a:msg, s:reSwankPort)
 	"if len(l:matched) > 0
 	if !empty(l:matched)
 		"let b:port = str2nr(l:matched[1])
-		return s:ConnectImpl(s:swankHost, str2nr(l:matched[1]))
+		let self.channel = self.ConnectImpl(s:swankHost, str2nr(l:matched[1]))
 	endif
-	return a:channel
 endfunction
 
-function s:ConnectImpl(host, port)
+function s:repl.ConnectImpl(host, port) dict
 	let l:options = {
 				\"mode": "json",
-				\"callback": function('s:callbackhandler')}
+				\"callback": self.callbackhandler}
 	let l:channel = s:ChOpen(a:host, a:port, l:options)
 	"echo ch_info(l:channel)
 	return l:channel
+endfunction
+
+function s:repl.callbackhandler(channel, msg) dict
+	echo a:channel
+	echo a:msg
+endfunction
+
+function s:repl.SendText(line) dict
+	return ch_sendraw(self.channel, join(s:TrimLines(a:line)) . "\n")
 endfunction
 
 function s:ShowBuffer(buffer)
@@ -114,10 +122,6 @@ function s:TrimLines(line)
 	return map(a:line, {_, val -> trim(val)})
 endfunction
 
-function s:SendText(line)
-	return ch_sendraw(b:handle, join(s:TrimLines(a:line)) . "\n")
-endfunction
-
 function s:GetLinePos(start, end)
 	let l:l = s:GetLine(a:start[0], a:end[0])
 	let l:l[-1] = strpart(l:l[-1], 0, a:end[1])
@@ -129,9 +133,8 @@ function s:GetLine(start, end)
 	return getline(a:start, a:end)
 endfunction
 
-function s:callbackhandler(channel, msg)
-	echo a:channel
-	echo a:msg
+function s:GetCwd()
+	return getcwd(bufwinnr(bufnr("#")))
 endfunction
 
 
