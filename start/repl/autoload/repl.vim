@@ -10,7 +10,7 @@ set cpoptions&vim
 
 "let b:repl = 'sbcl --load ~/.vim/pack/vim-package-repl/start-swank.lisp'
 "let b:repl = 'clisp -i ~/.vim/pack/vim-package-repl/start-swank.lisp'
-let b:repl = 'clisp'
+let b:impl = 'clisp'
 let b:option = '-i'
 
 "function s:Try()
@@ -21,23 +21,9 @@ function repl#Repl() abort
 	if !exists("b:handle")
 		let l:cwd = getcwd(bufwinnr(bufnr("#")))
 		call s:SetMap()
-		let b:handle = s:CreateRepl(l:cwd, join([b:repl, b:option, swank#GetPath()]))
-"		let b:handle = s:CreateRepl(l:cwd, b:repl)
-
-		let g:ch = s:Connect("localhost", 4005)
-		
+		let b:handle = s:StartImpl(l:cwd, join([b:impl, b:option, swank#GetPath()]))
 	endif
 	return b:handle
-endfunction
-
-function s:Connect(host, port)
-	let l:address = join([a:host, a:port], ':')
-	let l:options = {
-				\"mode": "json",
-				\"callback": function('s:callbackhandler')}
-	let l:channel = ch_open(l:address, l:options)
-	echo l:address
-	return l:channel
 endfunction
 
 function s:SetMap()
@@ -58,10 +44,50 @@ function s:EvalSelection() range
 	return s:SendText(s:GetLine(a:firstline, a:lastline))
 endfunction
 
-function s:JobStart(command, options)
-	let l:opts = {
-				\ "callback": function('s:callbackhandler')}
-	return job_start(a:command, extend(l:opts, a:options))
+function s:StartImpl(cwd, cmd)
+	let l:buf = bufnr(a:cmd, v:true)
+	let l:job = s:JobStart(a:cmd, {
+				\ 'in_mode': 'nl',
+				\ 'out_mode': 'nl',
+				\ 'err_mode': 'nl',
+				\ 'in_io': 'pipe',
+				\ 'out_io': 'buffer',
+				\ 'err_io': 'buffer',
+				\ 'out_modifiable': 0,
+				\ 'err_modifiable': 0,
+				\ 'out_name': bufname(l:buf),
+				\ 'err_name': bufname(l:buf),
+				\ "callback": function('s:WaitStart'),
+				\ "cwd": a:cwd})
+	let b:start_timer = timer_start(100, function('s:AwaitConnectSwank'), {"repeat": 10})
+	call s:ShowBuffer(l:buf)
+	return l:buf
+endfunction
+
+function s:AwaitConnectSwank(id)
+	if exists('b:port')
+		call s:ConnectSwank('127.0.0.1', b:port)
+		call timer_stop(a:id)
+	endif
+endfunction
+
+function s:WaitStart(channel, msg)
+	let l:matched = matchlist(a:msg, '^;; Swank started at port: \([[:digit:]]\+\)\.$')
+	if len(l:matched) > 0
+		let b:port = str2nr(l:matched[1])
+	endif
+endfunction
+
+function s:ConnectSwank(host, port)
+	let l:address = join([a:host, a:port], ':')
+	let l:options = {
+				\"mode": "json",
+				\"callback": function('s:callbackhandler')}
+	let l:channel = ch_open(l:address, l:options)
+"	echo l:address
+"	echo l:channel
+	echo ch_info(l:channel)
+	return l:channel
 endfunction
 
 function s:CreateRepl(cwd, cmd)
@@ -79,10 +105,11 @@ function s:CreateRepl(cwd, cmd)
 				\ 'err_name': bufname(l:buf),
 				\ "cwd": a:cwd})
 "	echo job_info(l:job)
-	let l:channel = job_getchannel(l:job)
+"	let l:channel = job_getchannel(l:job)
 "	echo ch_info(l:channel)
 	call s:ShowBuffer(l:buf)
-	return l:channel
+"	return l:channel
+	return l:job
 endfunction
 
 function s:ShowBuffer(buffer)
@@ -90,6 +117,18 @@ function s:ShowBuffer(buffer)
 	execute "vertical rightbelow sbuffer" a:buffer
 	execute l:w . "wincmd w"
 	return a:buffer
+endfunction
+
+function s:JobStart(command, options)
+	return job_start(a:command, extend({}, a:options))
+endfunction
+
+function s:TrimLines(line)
+	return map(a:line, {_, val -> trim(val)})
+endfunction
+
+function s:SendText(line)
+	return ch_sendraw(b:handle, join(s:TrimLines(a:line)) . "\n")
 endfunction
 
 function s:GetLinePos(start, end)
@@ -103,17 +142,9 @@ function s:GetLine(start, end)
 	return getline(a:start, a:end)
 endfunction
 
-function s:TrimLines(line)
-	return map(a:line, {_, val -> trim(val)})
-endfunction
-
-function s:SendText(line)
-	return ch_sendraw(b:handle, join(s:TrimLines(a:line)) . "\n")
-endfunction
-
 function s:callbackhandler(channel, msg)
-	echo a:channel
-	echo a:msg
+"	echo a:channel
+"	echo a:msg
 endfunction
 
 
