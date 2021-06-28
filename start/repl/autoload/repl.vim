@@ -6,16 +6,12 @@ let g:loaded_repl = 1
 let s:save_cpoptions = &cpoptions
 set cpoptions&vim
 
-"let s:script_dir = expand('<sfile>:p:h')
 
-"let b:repl = 'sbcl --load ~/.vim/pack/vim-package-repl/start-swank.lisp'
-"let b:repl = 'clisp -i ~/.vim/pack/vim-package-repl/start-swank.lisp'
 let b:impl = 'clisp'
 let b:option = '-i'
 
-"function s:Try()
-"	echo swank#GetPath()
-"endfunction
+let s:reSwankPort = '^;; Swank started at port: \([[:digit:]]\+\)\.$'
+let s:swankHost = '127.0.0.1'
 
 function repl#Repl() abort
 	if !exists("b:handle")
@@ -27,7 +23,6 @@ function repl#Repl() abort
 endfunction
 
 function s:SetMap()
-"	nmap <buffer> <script> <C-T> :call <SID>Try()<CR>
 	nmap <buffer> <silent> <script> <C-L> :call <SID>EvalCurrentBlock()<CR>
 	vmap <buffer> <silent> <script> <C-L> :call <SID>EvalSelection()<CR>
 endfunction
@@ -46,6 +41,7 @@ endfunction
 
 function s:StartImpl(cwd, cmd)
 	let l:buf = bufnr(a:cmd, v:true)
+"	let b:id = s:Await(function('s:AwaitConnectSwank'))
 	let l:job = s:JobStart(a:cmd, {
 				\ 'in_mode': 'nl',
 				\ 'out_mode': 'nl',
@@ -57,59 +53,39 @@ function s:StartImpl(cwd, cmd)
 				\ 'err_modifiable': 0,
 				\ 'out_name': bufname(l:buf),
 				\ 'err_name': bufname(l:buf),
-				\ "callback": function('s:WaitStart'),
+				\ "callback": function('s:WaitStartedImpl'),
 				\ "cwd": a:cwd})
-	let b:start_timer = timer_start(100, function('s:AwaitConnectSwank'), {"repeat": 10})
 	call s:ShowBuffer(l:buf)
-	return l:buf
-endfunction
-
-function s:AwaitConnectSwank(id)
-	if exists('b:port')
-		call s:ConnectSwank('127.0.0.1', b:port)
-		call timer_stop(a:id)
-	endif
-endfunction
-
-function s:WaitStart(channel, msg)
-	let l:matched = matchlist(a:msg, '^;; Swank started at port: \([[:digit:]]\+\)\.$')
-	if len(l:matched) > 0
-		let b:port = str2nr(l:matched[1])
-	endif
-endfunction
-
-function s:ConnectSwank(host, port)
-	let l:address = join([a:host, a:port], ':')
-	let l:options = {
-				\"mode": "json",
-				\"callback": function('s:callbackhandler')}
-	let l:channel = ch_open(l:address, l:options)
-"	echo l:address
-"	echo l:channel
-	echo ch_info(l:channel)
+	let l:channel = job_getchannel(l:job)
+"	echo ch_info(l:channel)
 	return l:channel
 endfunction
 
-function s:CreateRepl(cwd, cmd)
-	let l:buf = bufnr(a:cmd, v:true)
-	let l:job = s:JobStart(a:cmd, {
-				\ 'in_mode': 'nl',
-				\ 'out_mode': 'nl',
-				\ 'err_mode': 'nl',
-				\ 'in_io': 'pipe',
-				\ 'out_io': 'buffer',
-				\ 'err_io': 'buffer',
-				\ 'out_modifiable': 0,
-				\ 'err_modifiable': 0,
-				\ 'out_name': bufname(l:buf),
-				\ 'err_name': bufname(l:buf),
-				\ "cwd": a:cwd})
-"	echo job_info(l:job)
-"	let l:channel = job_getchannel(l:job)
-"	echo ch_info(l:channel)
-	call s:ShowBuffer(l:buf)
-"	return l:channel
-	return l:job
+"function s:AwaitConnectSwank()
+"	if exists('b:port')
+"		call s:ConnectImpl('127.0.0.1', b:port)
+"		return v:true
+"	endif
+"	return v:false
+"endfunction
+
+function s:WaitStartedImpl(channel, msg)
+	let l:matched = matchlist(a:msg, s:reSwankPort)
+	"if len(l:matched) > 0
+	if !empty(l:matched)
+		"let b:port = str2nr(l:matched[1])
+		return s:ConnectImpl(s:swankHost, str2nr(l:matched[1]))
+	endif
+	return a:channel
+endfunction
+
+function s:ConnectImpl(host, port)
+	let l:options = {
+				\"mode": "json",
+				\"callback": function('s:callbackhandler')}
+	let l:channel = s:ChOpen(a:host, a:port, l:options)
+	"echo ch_info(l:channel)
+	return l:channel
 endfunction
 
 function s:ShowBuffer(buffer)
@@ -117,6 +93,17 @@ function s:ShowBuffer(buffer)
 	execute "vertical rightbelow sbuffer" a:buffer
 	execute l:w . "wincmd w"
 	return a:buffer
+endfunction
+
+"function s:Await(callback)
+"	return timer_start(
+"				\ 10,
+"				\ {id -> a:callback() ? timer_stop(id) : v:false},
+"				\ {"repeat": -1})
+"endfunction
+
+function s:ChOpen(host, port, options)
+	return ch_open(a:host . ':' . a:port, a:options)
 endfunction
 
 function s:JobStart(command, options)
@@ -143,8 +130,8 @@ function s:GetLine(start, end)
 endfunction
 
 function s:callbackhandler(channel, msg)
-"	echo a:channel
-"	echo a:msg
+	echo a:channel
+	echo a:msg
 endfunction
 
 
